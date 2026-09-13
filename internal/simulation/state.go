@@ -21,14 +21,14 @@ type BotConfig struct {
 }
 
 type BotState struct {
-	maxHP  int
-	maxAP  int
-	maxEP  int
-	currHP int
-	currAP int
-	currEP int
-	speed  int
-	defBuf bool
+	maxHP   int
+	maxAP   int
+	maxEP   int
+	currHP  int
+	currAP  int
+	currEP  int
+	currDef int
+	speed   int
 }
 
 type SpeedComparison int
@@ -60,14 +60,14 @@ func createBotstate(conf BotConfig) BotState {
 	compMod := addMods(conf.modules)
 	state := BotState{
 
-		maxHP:  conf.chassis.hp + compMod.hp,
-		maxAP:  conf.chassis.ap + compMod.ap,
-		maxEP:  conf.chassis.ep,
-		speed:  conf.chassis.speed + compMod.speed,
-		currHP: conf.chassis.hp + compMod.hp,
-		currAP: conf.chassis.ap + compMod.ap,
-		currEP: conf.chassis.ep / 2,
-		defBuf: false,
+		maxHP:   conf.chassis.hp + compMod.hp,
+		maxAP:   conf.chassis.ap + compMod.ap,
+		maxEP:   conf.chassis.ep,
+		speed:   conf.chassis.speed + compMod.speed,
+		currHP:  conf.chassis.hp + compMod.hp,
+		currAP:  conf.chassis.ap + compMod.ap,
+		currEP:  conf.chassis.ep / 2,
+		currDef: 0,
 	}
 	return state
 }
@@ -104,4 +104,48 @@ func rollInitiative(gen *rand.Rand, sc SpeedComparison) Initiative {
 		return BotABegins
 	}
 	return BotBBegins
+}
+
+func attack(defender *BotState, gen *rand.Rand) {
+	dmg := gen.Intn(11) + 20
+	dmg = defender.applyDefense(dmg)
+	defender.applyDamage(dmg)
+}
+
+func strongAttack(attacker *BotState, defender *BotState, gen *rand.Rand) bool {
+	if attacker.currEP < 20 {
+		return false
+	}
+	attacker.currEP -= 20
+	dmg := gen.Intn(11) + 35
+	dmg = defender.applyDefense(dmg)
+	defender.applyDamage(dmg)
+	return true
+}
+
+func (state *BotState) applyDamage(dmg int) {
+	dmg = state.currAP - dmg // negative values means HP dmg, 0 and positve values represent new currAP
+	if dmg < 0 {
+		state.currAP = 0
+		state.currHP += dmg
+		if state.currHP < 0 {
+			state.currHP = 0
+		}
+	} else {
+		state.currAP = dmg
+	}
+}
+
+func (state *BotState) applyDefense(dmg int) int {
+	effDmg := dmg - state.currDef
+	state.currDef = 0
+	return max(0, effDmg)
+}
+
+func (state *BotState) getDefenseBuff(gen *rand.Rand) {
+	if state.currDef > 0 {
+		return
+	}
+	def := gen.Intn(11) + 10
+	state.currDef = def
 }
